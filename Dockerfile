@@ -21,9 +21,11 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Копируем код
-COPY . .
+COPY src/ ./src
+COPY .env .env
 
 EXPOSE 8501
 
 # Запускаем Streamlit
-CMD ["streamlit", "run", "streamlit_app_my.py", "--server.port=8501", "--server.address=0.0.0.0"] 
+ENV PYTHONPATH="$PYTHONPATH:."
+CMD ["python", "src/cli/bot.py"]

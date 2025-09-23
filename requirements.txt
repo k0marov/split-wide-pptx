@@ -1,6 +1,5 @@
 python-pptx==1.0.2
-langchain
-langchain-ollama
 requests>=2.31.0
-streamlit
-
+aiogram>=3.0
+python-dotenv>=1.0
+telethon==1.34.0
