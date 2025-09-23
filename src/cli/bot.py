@@ -1,5 +1,6 @@
 import os
 import tempfile
+from distutils.command.config import config
 from typing import Optional
 
 from aiogram import Bot, Dispatcher, types
@@ -11,8 +12,9 @@ import asyncio
 from dotenv import load_dotenv
 
 from src.renote.processor import process_pptx, ProcessingOptions
-from src.userbot import telethon_download
+from src.userbot import telethon_file_manager
 
+from src.config import TELETHON_ADMIN_ID
 
 class PPTXBot:
     def __init__(self, token: str):
@@ -58,6 +60,9 @@ class PPTXBot:
         await message.answer(help_text)
 
     async def message_handler(self, message: Message):
+        if str(message.from_user.id) == TELETHON_ADMIN_ID:
+            print("Ignoring message from telethon admin")
+            return
         """Handle regular messages"""
         if message.text == "📤 Отправить презентацию":
             await message.answer("📎 Пожалуйста, загрузите файл презентации (.pptx)")
@@ -86,17 +91,17 @@ class PPTXBot:
             # with tempfile.NamedTemporaryFile(suffix='.pptx', delete=False) as input_file:
             #     input_path = input_file.name
             #
-            with tempfile.NamedTemporaryFile(suffix='.pptx', delete=False) as output_file:
+            with tempfile.NamedTemporaryFile(
+                    prefix='splitted_' + ''.join(message.document.file_name.split('.')[:-1]),
+                    suffix='.pptx',
+                    delete=False) as output_file:
                 output_path = output_file.name
 
             input_path = None
 
             try:
                 # Download the file
-                input_path = await telethon_download.download_file_smart(self.bot, message.document, message)
-                #
-                # await self.bot.download_file(file.file_path, input_path)
-                #
+                input_path = await telethon_file_manager.download_file_smart(self.bot, message.document, message)
                 # Process the presentation
                 opts = ProcessingOptions(
                     title_min_font_pt=36.0,  # Default values
@@ -110,17 +115,15 @@ class PPTXBot:
                     direct=True,
                 )
 
-                # Send the processed file back
-                output_filename = f"renote_{message.document.file_name}"
-
-                with open(output_path, 'rb') as file:
-                    await message.answer_document(
-                        types.BufferedInputFile(
-                            file.read(),
-                            filename=output_filename
-                        ),
-                        caption="✅ Ваша презентация обработана!"
-                    )
+                msg_file = await telethon_file_manager.upload_file_smart(self.bot, output_path)
+                print('got msg_file =', msg_file)
+                if msg_file is None:
+                    # this means that telethon big file upload was not needed and we can use bot api
+                    msg_file = types.InputFile(output_path)
+                await message.answer_document(
+                    msg_file,
+                    caption="✅ Ваша презентация обработана!"
+                )
             finally:
                 # Clean up temporary files
                 if input_path is not None and os.path.exists(input_path):

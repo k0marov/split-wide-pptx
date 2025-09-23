@@ -1,12 +1,18 @@
 import os
 import tempfile
+import typing
+
+import aiogram
 from telethon import TelegramClient
+
+from aiogram.types.input_file import InputFile
 from dotenv import load_dotenv
+from telethon.utils import pack_bot_file_id
 
 from src.config import TELEGRAM_API_ID, TELEGRAM_API_HASH, TELETHON_ADMIN_ID, TELEGRAM_BOT_USERNAME
 
-class TelethonDownloader:
-    """Класс для скачивания больших файлов через Telethon"""
+class TelethonFileManager:
+    """Класс для скачивания и загрузки больших файлов через Telethon"""
     
     def __init__(self):
         self.client = None
@@ -29,7 +35,29 @@ class TelethonDownloader:
                 raise Exception("Telethon клиент не авторизован")
         
         return self.client
-    
+
+
+    async def upload_large_file(self, bot_chat: str, upload_file_path: str) -> str:
+        """
+        Загружает на сервер большой файл через Telethon
+
+        :param bot_chat: Username бота (без @) для поиска чата
+        :param upload_file_path: Путь файла в ФС, который отправляем
+        :return: file_id
+        """
+        try:
+            # print(f"Скачиваем файл {filename} из чата @{bot_chat} с размером {expected_size} байт")
+
+            client = await self._get_client()
+            bot_entity = await client.get_entity(bot_chat)
+            msg = await client.send_file(bot_entity, file=upload_file_path)
+            await self._disconnect_after_activity()
+
+            return pack_bot_file_id(msg.media.document)
+        except Exception as e:
+            print(f"Ошибка скачивания через Telethon: {e}")
+            raise
+
     async def download_large_file(self, bot_chat: str, expected_size: int, filename: str = None) -> str:
         """
         Скачивает большой файл через Telethon, находя его среди последних сообщений по размеру.
@@ -89,7 +117,7 @@ class TelethonDownloader:
                 raise Exception("Не удалось найти пересланный медиафайл среди последних сообщений по размеру")
 
             # Отключаемся после скачивания
-            await self._disconnect_after_download()
+            await self._disconnect_after_activity()
 
             return file_path
             
@@ -125,20 +153,20 @@ class TelethonDownloader:
             print(f"Ошибка переподключения: {e}")
             raise
     
-    async def _disconnect_after_download(self):
-        """Отключается от сессии после скачивания"""
+    async def _disconnect_after_activity(self):
+        """Отключается от сессии после скачивания/загрузки"""
         try:
             if self.client:
                 await self.client.disconnect()
                 self.client = None
-                print("Отключился от Telethon сессии после скачивания")
+                print("Отключился от Telethon сессии после скачивания/загрузки")
         except Exception as e:
             print(f"Ошибка отключения: {e}")
             # Не выбрасываем ошибку, так как файл уже скачан
 
 
 # Глобальный экземпляр
-telethon_downloader = TelethonDownloader()
+telethon_downloader = TelethonFileManager()
 
 
 def is_file_too_large(file_size: int) -> bool:
@@ -167,11 +195,30 @@ async def get_telethon_admin_id() -> int:
         raise Exception(f"Некорректный TELETHON_ADMIN_ID: {TELETHON_ADMIN_ID}")
 
 
+async def upload_file_smart(bot: aiogram.Bot, file_path: str) -> typing.Optional[str]:
+    """
+    Умно загружает файл: через Bot API или Telethon в зависимости от размера
+
+    :param bot: Экземпляр aiogram bot
+    :param file_path: Путь к файлу который загружаем
+    :return: file_id если понадобился Telethon иначе None
+    """
+    # Проверяем размер файла
+    MAX_UPLOAD_SIZE = 20 * 1024 * 1024 # TODO: change to 50MB
+    file_size = os.stat(file_path).st_size
+    print(f"Размер файла: {file_size / 1024 / 1024:.1f} MB")
+    if file_size > MAX_UPLOAD_SIZE:
+        print("Файл больше 20MB, использую Telethon")
+        return await telethon_downloader.upload_large_file(TELEGRAM_BOT_USERNAME, file_path)
+    else:
+        return None
+
+
 async def download_file_smart(bot, file_obj, message) -> str:
     """
     Умно скачивает файл: через Bot API или Telethon в зависимости от размера
     
-    :param bot: Экземпляр telebot
+    :param bot: Экземпляр aiogram bot
     :param file_obj: Объект файла из сообщения
     :param message: Сообщение с файлом
     :return: Путь к скачанному файлу
