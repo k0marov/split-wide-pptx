@@ -230,7 +230,6 @@ def split_into_thirds_direct(
             else:
                 left_bound, right_bound = 2 * third_width, original_width
 
-            # Применяем сценарий VLM, если задан; иначе используем эвристику
             is_title = False
             if scenario_for_src in ("title", "split"):
                 is_title = scenario_for_src == "title"

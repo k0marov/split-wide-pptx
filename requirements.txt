@@ -1,6 +1,4 @@
 python-pptx==1.0.2
-langchain
-langchain-ollama
 requests>=2.31.0
 streamlit
 

@@ -3,7 +3,7 @@ import tempfile
 import os
 from pathlib import Path
 
-from renote.processor import process_pptx, ProcessingOptions
+from src.renote.processor import process_pptx, ProcessingOptions
 
 
 def main():
@@ -40,40 +40,7 @@ def main():
             help="Минимальное соотношение ширины элемента к ширине трети слайда"
         )
         
-        # Режим классификации
-        vlm_mode = st.selectbox(
-            "Режим классификации слайдов",
-            options=["heuristic", "ollama"],
-            index=0,
-            help="heuristic - быстрый режим на основе эвристик, ollama - с использованием VLM"
-        )
-        
-        # Настройки для Ollama (если выбран)
-        if vlm_mode == "ollama":
-            st.subheader("🤖 Настройки Ollama")
-            
-            ollama_url = st.text_input(
-                "URL Ollama API", 
-                value="http://localhost:11434",
-                help="URL для подключения к Ollama API"
-            )
-            
-            ollama_model = st.text_input(
-                "Модель Ollama", 
-                value="llava:latest",
-                help="Название модели для VLM классификации"
-            )
-            
-            soffice_path = st.text_input(
-                "Путь к LibreOffice soffice",
-                value="/Applications/LibreOffice.app/Contents/MacOS/soffice",
-                help="Путь к исполняемому файлу LibreOffice для экспорта PNG (необходимо для VLM режима)"
-            )
-        else:
-            ollama_url = "http://localhost:11434"
-            ollama_model = "llava:latest"
-            soffice_path = None
-    
+
     # Основная область
     col1, col2 = st.columns([1, 1])
     
@@ -109,10 +76,6 @@ def main():
                         options = ProcessingOptions(
                             title_min_font_pt=title_min_font,
                             title_min_width_ratio=title_min_width_ratio,
-                            vlm_mode=vlm_mode,
-                            soffice_path=soffice_path if vlm_mode == "ollama" else None,
-                            ollama_model=ollama_model,
-                            ollama_url=ollama_url,
                         )
                         
                         # Прогресс бар
@@ -167,39 +130,11 @@ def main():
         - 🔄 Автоматическое разбиение широких слайдов на узкие (16:9)
         - 🎨 Сохранение фона и стилей оформления
         - 📝 Интеллектуальная обработка титульных слайдов
-        - 🤖 Поддержка VLM для улучшенной классификации (через Ollama)
-        
-        **Режимы классификации:**
-        - **Heuristic**: Быстрая обработка на основе размеров шрифтов и элементов
-        - **Ollama**: Использование VLM модели для более точной классификации слайдов
-        
-        **Требования для режима Ollama:**
-        - Установленный и запущенный Ollama (`ollama serve`)
-        - Скачанная модель (например: `ollama pull llava:latest`)
-        - Установленный LibreOffice для экспорта слайдов в PNG
         """)
     
     # Информация о статусе
     st.markdown("---")
     col_info1, col_info2, col_info3 = st.columns(3)
-    
-    with col_info1:
-        st.metric("Режим обработки", vlm_mode.upper())
-    
-    with col_info2:
-        if vlm_mode == "ollama":
-            # Проверяем доступность Ollama
-            try:
-                import requests
-                response = requests.get(f"{ollama_url}/api/tags", timeout=2)
-                if response.status_code == 200:
-                    st.metric("Статус Ollama", "🟢 Доступен")
-                else:
-                    st.metric("Статус Ollama", "🔴 Недоступен")
-            except Exception:
-                st.metric("Статус Ollama", "🔴 Недоступен")
-        else:
-            st.metric("Статус системы", "🟢 Готов")
     
     with col_info3:
         st.metric("Размер шрифта титула", f"{title_min_font:.0f}pt")
