@@ -1,7 +1,9 @@
+data
 tests/outputs
 # Byte-compiled / optimized / DLL files
 .idea
 __pycache__/
+.env
 *.py[cod]
 *$py.class
 
