@@ -39,13 +39,8 @@ class PPTXBot:
             "Используйте /help для справки."
         )
 
-        builder = ReplyKeyboardBuilder()
-        builder.add(types.KeyboardButton(text="📤 Отправить презентацию"))
-        builder.adjust(1)
-
         await message.answer(
             welcome_text,
-            reply_markup=builder.as_markup(resize_keyboard=True)
         )
 
     async def help_handler(self, message: Message):
@@ -55,7 +50,6 @@ class PPTXBot:
             "1. Отправьте мне файл презентации в формате .pptx\n"
             "2. Я обработаю его и верну преобразованную версию\n"
             "3. Файл будет сохранен с тем же именем, но с приставкой '_renote'\n\n"
-            "Просто отправьте файл или нажмите кнопку '📤 Отправить презентацию'"
         )
         await message.answer(help_text)
 
@@ -64,10 +58,6 @@ class PPTXBot:
             print("Ignoring message from telethon admin")
             return
         """Handle regular messages"""
-        if message.text == "📤 Отправить презентацию":
-            await message.answer("📎 Пожалуйста, загрузите файл презентации (.pptx)")
-            return
-
         if message.document:
             await self.handle_document(message)
         else:
@@ -79,18 +69,9 @@ class PPTXBot:
             await message.answer("❌ Пожалуйста, отправьте файл в формате .pptx")
             return
 
-        # Check file size (limit to 50MB)
-        # if message.document.file_size > 50 * 1024 * 1024:
-        #     await message.answer("❌ Файл слишком большой. Максимальный размер - 50MB")
-        #     return
-
         await message.answer("⏳ Обрабатываю презентацию...")
 
         try:
-            # Create temporary files
-            # with tempfile.NamedTemporaryFile(suffix='.pptx', delete=False) as input_file:
-            #     input_path = input_file.name
-            #
             with tempfile.NamedTemporaryFile(
                     prefix='splitted_' + ''.join(message.document.file_name.split('.')[:-1]),
                     suffix='.pptx',
