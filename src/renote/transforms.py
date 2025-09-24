@@ -24,6 +24,34 @@ def _iter_shapes(slide):
     for shape in list(slide.shapes):
         yield shape
 
+def _cut_layouts(prs):
+    """Cuts layouts so that the background does not overflow the new slide width."""
+    target_width = prs.slide_width
+    for master_idx, slide_master in enumerate(prs.slide_masters):
+        for shape in slide_master.shapes:
+            if shape.left is None:
+                continue
+            if shape.width > target_width:
+                shape.width = target_width
+                if shape.left == 0:
+                    shape.left = 0
+        for layout_idx, layout in enumerate(slide_master.slide_layouts):
+            for shape in layout.shapes:
+                if shape.left is None:
+                    continue
+                if shape.left + shape.width > target_width:
+                    new_width = target_width - shape.left
+                    if new_width > 0:
+                        shape.width = new_width
+                    # else:
+                    #     print("hard case")
+
+    # for slide in prs.slides:
+    #     for shape in slide.shapes:
+    #         # Resize shapes that extend beyond new width
+    #         if shape.left + shape.width > target_width or shape.left < 0:
+    #             _delete_shape(shape)
+
 
 def _remove_placeholders(slide) -> None:
     """Remove placeholders from a slide to avoid duplicates on cloning."""
@@ -258,6 +286,7 @@ def split_into_thirds_direct(
 
     # 4) Установить новую ширину слайдов и сохранить
     prs.slide_width = third_width
+    _cut_layouts(prs)
     prs.save(output_pptx)
 
 
