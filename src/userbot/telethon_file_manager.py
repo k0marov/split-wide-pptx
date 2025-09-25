@@ -17,7 +17,13 @@ class TelethonFileManager:
     def __init__(self):
         self.client = None
         self.session_file = "data/telethon_session"
-        
+
+    async def init_client(self):
+        """Инициализирует клиента, чтобы провести диалог в stdin/stdout"""
+        print("Performing initial Telethon client initialization")
+        print("WARNING: if session file is not initialized, you will need stdio/stdout to interactively perform auth via code")
+        await self._get_client()
+
     async def _get_client(self):
         """Получает авторизованный Telethon клиент"""
         if self.client is None:

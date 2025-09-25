@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Optional
 
 from pptx.enum.shapes import MSO_SHAPE_TYPE

@@ -1,12 +1,9 @@
 import os
 import tempfile
-from distutils.command.config import config
-from typing import Optional
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import Message
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
 import asyncio
 
 from dotenv import load_dotenv
@@ -14,16 +11,13 @@ from dotenv import load_dotenv
 from src.renote.processor import process_pptx, ProcessingOptions
 from src.userbot import telethon_file_manager
 
-from src.config import TELETHON_ADMIN_ID
+from src import config
 
 class PPTXBot:
     def __init__(self, token: str):
         self.bot = Bot(token=token)
         self.dp = Dispatcher()
         self.setup_handlers()
-
-        # Store user states: {user_id: 'waiting_for_file'}
-        self.user_states = {}
 
     def setup_handlers(self):
         self.dp.message(Command("start"))(self.start_handler)
@@ -54,7 +48,7 @@ class PPTXBot:
         await message.answer(help_text)
 
     async def message_handler(self, message: Message):
-        if str(message.from_user.id) == TELETHON_ADMIN_ID:
+        if str(message.from_user.id) == config.TELETHON_ADMIN_ID:
             print("Ignoring message from telethon admin")
             return
         """Handle regular messages"""
@@ -124,12 +118,13 @@ class PPTXBot:
 async def main():
     # Get bot token from environment variable
     load_dotenv()
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    token = config.TELEGRAM_BOT_TOKEN
     if not token:
         print("Error: TELEGRAM_BOT_TOKEN environment variable is not set")
         return
 
     bot = PPTXBot(token)
+    await telethon_file_manager.telethon_downloader.init_client()
     await bot.run()
 
 
