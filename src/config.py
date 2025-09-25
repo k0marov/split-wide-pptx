@@ -10,3 +10,8 @@ TELEGRAM_API_HASH = os.getenv("TELEGRAM_API_HASH")
 TELETHON_ADMIN_ID = os.getenv("TELETHON_ADMIN_ID")  # ID пользователя для пересылки больших файлов
 TELEGRAM_BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME")  # Username бота без @
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+
+
+# Переменные для базы данных
+SQLITE_URL = os.getenv("SQLITE_URL")
+SUPERADMIN_TELEGRAM_ID = os.getenv("SUPERADMIN_TELEGRAM_ID") # айди первого админа

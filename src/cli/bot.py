@@ -8,39 +8,73 @@ import asyncio
 
 from dotenv import load_dotenv
 
+from src.datasources import admin_auth_db
 from src.renote.processor import process_pptx, ProcessingOptions
 from src.userbot import telethon_file_manager
 
 from src import config
 
 class PPTXBot:
-    def __init__(self, token: str):
+    def __init__(self, token: str, db: admin_auth_db.AdminAuthDB):
         self.bot = Bot(token=token)
+        self.db = db
         self.dp = Dispatcher()
         self.setup_handlers()
 
     def setup_handlers(self):
         self.dp.message(Command("start"))(self.start_handler)
         self.dp.message(Command("help"))(self.help_handler)
+        self.dp.message(Command("accept"))(self.accept_handler)
+        self.dp.message(Command("reject"))(self.reject_handler)
         self.dp.message()(self.message_handler)
 
     async def start_handler(self, message: Message):
         """Handle /start command"""
-        welcome_text = (
+        user_id = message.from_user.id
+        if str(user_id) == config.SUPERADMIN_TELEGRAM_ID:
+            self.db.set_admin(str(user_id), str(message.chat.id))
+            await message.answer("Вы суперадмин.")
+            return
+
+        welcome_text = [
             "👋 Добро пожаловать в Renote PPTX transformer!\n\n"
             "Я помогу вам преобразовать вашу презентацию.\n"
             "Просто отправьте мне файл презентации (.pptx) и я обработаю его.\n\n"
             "Используйте /help для справки."
-        )
+        ]
+        if not self.db.check_is_approved(str(user_id)):
+            admin_info = self.db.get_is_admin_info(config.SUPERADMIN_TELEGRAM_ID)
+            if admin_info is not None:
+                await self.bot.send_message(admin_info.chat_id, f'/accept {user_id}\n/reject {user_id}')
+                welcome_text.append('\nВы пока не приняты админом, он должен принять вас, инструкции были посланы ему в чат.')
+            else:
+                welcome_text.append(f'\nВы пока не приняты админом, и админ ещё не заходил в бота, поэтому ему не было прислано сообщения о Вас.\nЧтобы принять вас, ему нужно будет ввести /accept {user_id}')
 
         await message.answer(
-            welcome_text,
+            ''.join(welcome_text),
         )
+
+    async def accept_handler(self, message: Message):
+        user_id = message.from_user.id
+        if self.db.get_is_admin_info(str(user_id)) is None:
+            await message.answer("Вы не админ.")
+            return
+        accept_user_id = message.text.split(' ')[-1]
+        self.db.set_approved(accept_user_id)
+        await message.answer(f'Пользователь {accept_user_id} принят.')
+
+    async def reject_handler(self, message: Message):
+        user_id = message.from_user.id
+        if self.db.get_is_admin_info(str(user_id)) is None:
+            await message.answer("Вы не админ.")
+            return
+        await message.answer("Пользователь был отвергнут.")
 
     async def help_handler(self, message: Message):
         """Handle /help command"""
         help_text = (
             "ℹ️ **Справка по использованию бота:**\n\n"
+            f"0. Админ должен аппрувнуть вас, написав в своём чате /accept {message.from_user.id} \n"
             "1. Отправьте мне файл презентации в формате .pptx\n"
             "2. Я обработаю его и верну преобразованную версию\n"
             "3. Файл будет сохранен с тем же именем, но с приставкой '_renote'\n\n"
@@ -48,9 +82,14 @@ class PPTXBot:
         await message.answer(help_text)
 
     async def message_handler(self, message: Message):
-        if str(message.from_user.id) == config.TELETHON_ADMIN_ID:
-            print("Ignoring message from telethon admin")
+        if message.document and str(message.from_user.id) == config.TELETHON_ADMIN_ID:
+            print("Ignoring document message from telethon admin")
             return
+
+        if not self.db.check_is_approved(str(message.from_user.id)):
+            await message.answer("Вы пока не приняты админом.")
+            return
+
         """Handle regular messages"""
         if message.document:
             await self.handle_document(message)
@@ -117,13 +156,15 @@ class PPTXBot:
 
 async def main():
     # Get bot token from environment variable
-    load_dotenv()
     token = config.TELEGRAM_BOT_TOKEN
     if not token:
         print("Error: TELEGRAM_BOT_TOKEN environment variable is not set")
         return
 
-    bot = PPTXBot(token)
+    db = admin_auth_db.AdminAuthDB(config.SQLITE_URL, create_tables=True)
+    db.set_approved(config.SUPERADMIN_TELEGRAM_ID)
+
+    bot = PPTXBot(token, db)
     await telethon_file_manager.telethon_downloader.init_client()
     await bot.run()
 
