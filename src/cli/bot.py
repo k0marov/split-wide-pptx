@@ -8,6 +8,7 @@ import asyncio
 
 from dotenv import load_dotenv
 
+from src.datasources import admin_auth_db
 from src.renote.processor import process_pptx, ProcessingOptions
 from src.userbot import telethon_file_manager
 
@@ -117,11 +118,14 @@ class PPTXBot:
 
 async def main():
     # Get bot token from environment variable
-    load_dotenv()
     token = config.TELEGRAM_BOT_TOKEN
     if not token:
         print("Error: TELEGRAM_BOT_TOKEN environment variable is not set")
         return
+
+    db = admin_auth_db.AdminAuthDB(config.SQLITE_URL, create_tables=True)
+    db.add_admin(config.SUPERADMIN_TELEGRAM_ID)
+    db.set_approved(config.SUPERADMIN_TELEGRAM_ID)
 
     bot = PPTXBot(token)
     await telethon_file_manager.telethon_downloader.init_client()
