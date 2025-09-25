@@ -1,3 +1,5 @@
+import typing
+
 from sqlalchemy import create_engine, Column, String, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -9,6 +11,7 @@ class Admin(Base):
     __tablename__ = 'admins'
 
     id = Column(String, primary_key=True)  # Telegram ID as primary key
+    chat_id = Column(String, nullable=False)
 
 
 class ApprovedUser(Base):
@@ -36,7 +39,7 @@ class AdminAuthDB:
         """Create and return a new database session."""
         return self.SessionLocal()
 
-    def check_is_admin(self, id: str) -> bool:
+    def get_is_admin_info(self, id: str) -> typing.Optional[Admin]:
         """
         Check if a user ID is in the admins table.
 
@@ -44,29 +47,30 @@ class AdminAuthDB:
             id: Telegram user ID to check
 
         Returns:
-            bool: True if the user is an admin, False otherwise
+            None: if user is not an admin
+            Admin: admin info if he is an admin
         """
         session = self._get_session()
         try:
             admin = session.query(Admin).filter(Admin.id == id).first()
-            return admin is not None
+            return admin
         finally:
             session.close()
 
-    def add_admin(self, id: str) -> None:
+    def set_admin(self, id: str, chat_id: str) -> None:
         """
         Add a user ID to the admins table if not already present.
 
         Args:
             id: Telegram user ID to add as admin
         """
-        if self.check_is_admin(id):
+        if self.get_is_admin_info(id) is not None:
             return  # Already an admin, do nothing
 
         session = self._get_session()
         try:
-            admin = Admin(id=id)
-            session.add(admin)
+            admin = Admin(id=id, chat_id=chat_id)
+            session.merge(admin)
             session.commit()
         except Exception:
             session.rollback()
