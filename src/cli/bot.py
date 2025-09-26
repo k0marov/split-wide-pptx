@@ -2,6 +2,7 @@ import os
 import re
 import tempfile
 
+import aiogram
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import Message
@@ -14,6 +15,8 @@ from src.renote.processor import process_pptx, ProcessingOptions
 from src.userbot import telethon_file_manager
 
 from src import config
+from src.libre import convert_to_pdf
+
 
 class PPTXBot:
     def __init__(self, token: str, db: admin_auth_db.AdminAuthDB):
@@ -100,6 +103,33 @@ class PPTXBot:
         else:
             await message.answer("Пожалуйста, отправьте файл презентации или используйте /help для справки")
 
+
+    async def _send_split_presentation(self, path: str, message: Message):
+        msg_file = await telethon_file_manager.upload_file_smart(self.bot, path)
+        if msg_file is None:
+            # this means that telethon big file upload was not needed and we can use bot api
+            msg_file = types.FSInputFile(path)
+        await message.answer_document(
+            msg_file,
+            caption="✅ Ваша презентация обработана!"
+        )
+
+    async def _convert_to_pdf(self, path: str, message: Message):
+        await message.answer("⏳ Конвертация в PDF займёт около 1 мин...")
+        pdf_path = path.replace('.pptx', '.pdf')
+        if not await convert_to_pdf.convert_pptx_to_pdf(path, pdf_path):
+            await message.answer("Ошибка при конвертации в PDF")
+        else:
+            msg_file = await telethon_file_manager.upload_file_smart(self.bot, pdf_path)
+            if msg_file is None:
+                # this means that telethon big file upload was not needed and we can use bot api
+                msg_file = types.FSInputFile(pdf_path)
+            await message.answer_document(
+                msg_file,
+                caption="✅ Успешно сконвертировал разрезанную презентацию в PDF"
+            )
+
+
     async def handle_document(self, message: Message):
         """Handle document upload"""
         if not message.document.file_name or not message.document.file_name.endswith('.pptx'):
@@ -133,14 +163,9 @@ class PPTXBot:
                     direct=True,
                 )
 
-                msg_file = await telethon_file_manager.upload_file_smart(self.bot, output_path)
-                print('got msg_file =', msg_file)
-                if msg_file is None:
-                    # this means that telethon big file upload was not needed and we can use bot api
-                    msg_file = types.InputFile(output_path)
-                await message.answer_document(
-                    msg_file,
-                    caption="✅ Ваша презентация обработана!"
+                await asyncio.gather(
+                    self._send_split_presentation(output_path, message),
+                    self._convert_to_pdf(output_path, message)
                 )
             finally:
                 # Clean up temporary files
