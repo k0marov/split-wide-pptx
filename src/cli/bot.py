@@ -46,7 +46,10 @@ class PPTXBot:
         if not self.db.check_is_approved(str(user_id)):
             admin_info = self.db.get_is_admin_info(config.SUPERADMIN_TELEGRAM_ID)
             if admin_info is not None:
-                await self.bot.send_message(admin_info.chat_id, f'/accept_{user_id}\n/reject_{user_id}')
+                await self.bot.send_message(admin_info.chat_id,
+                                            f'Пользователь @{message.from_user.username or "<нет юзернейма>"} хочет присоединиться\n'
+                                            f'/accept_{user_id}\n/reject_{user_id}'
+                )
                 welcome_text.append('\nВы пока не приняты админом, он должен принять вас, инструкции были посланы ему в чат.')
             else:
                 welcome_text.append(f'\nВы пока не приняты админом, и админ ещё не заходил в бота, поэтому ему не было прислано сообщения о Вас.\nЧтобы принять вас, ему нужно будет ввести /accept_{user_id}')
