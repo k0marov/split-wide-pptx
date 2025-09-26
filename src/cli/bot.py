@@ -1,4 +1,5 @@
 import os
+import re
 import tempfile
 
 from aiogram import Bot, Dispatcher, types
@@ -24,8 +25,8 @@ class PPTXBot:
     def setup_handlers(self):
         self.dp.message(Command("start"))(self.start_handler)
         self.dp.message(Command("help"))(self.help_handler)
-        self.dp.message(Command("accept"))(self.accept_handler)
-        self.dp.message(Command("reject"))(self.reject_handler)
+        self.dp.message(Command(re.compile("accept_[0-9]+")))(self.accept_handler)
+        self.dp.message(Command(re.compile("reject_[0-9]+")))(self.reject_handler)
         self.dp.message()(self.message_handler)
 
     async def start_handler(self, message: Message):
@@ -45,10 +46,10 @@ class PPTXBot:
         if not self.db.check_is_approved(str(user_id)):
             admin_info = self.db.get_is_admin_info(config.SUPERADMIN_TELEGRAM_ID)
             if admin_info is not None:
-                await self.bot.send_message(admin_info.chat_id, f'/accept {user_id}\n/reject {user_id}')
+                await self.bot.send_message(admin_info.chat_id, f'/accept_{user_id}\n/reject_{user_id}')
                 welcome_text.append('\nВы пока не приняты админом, он должен принять вас, инструкции были посланы ему в чат.')
             else:
-                welcome_text.append(f'\nВы пока не приняты админом, и админ ещё не заходил в бота, поэтому ему не было прислано сообщения о Вас.\nЧтобы принять вас, ему нужно будет ввести /accept {user_id}')
+                welcome_text.append(f'\nВы пока не приняты админом, и админ ещё не заходил в бота, поэтому ему не было прислано сообщения о Вас.\nЧтобы принять вас, ему нужно будет ввести /accept_{user_id}')
 
         await message.answer(
             ''.join(welcome_text),
@@ -59,7 +60,7 @@ class PPTXBot:
         if self.db.get_is_admin_info(str(user_id)) is None:
             await message.answer("Вы не админ.")
             return
-        accept_user_id = message.text.split(' ')[-1]
+        accept_user_id = message.text.split('_')[-1]
         self.db.set_approved(accept_user_id)
         await message.answer(f'Пользователь {accept_user_id} принят.')
 
@@ -74,7 +75,7 @@ class PPTXBot:
         """Handle /help command"""
         help_text = (
             "ℹ️ **Справка по использованию бота:**\n\n"
-            f"0. Админ должен аппрувнуть вас, написав в своём чате /accept {message.from_user.id} \n"
+            f"0. Админ должен аппрувнуть вас, написав в своём чате /accept_{message.from_user.id} \n"
             "1. Отправьте мне файл презентации в формате .pptx\n"
             "2. Я обработаю его и верну преобразованную версию\n"
             "3. Файл будет сохранен с тем же именем, но с приставкой '_renote'\n\n"
