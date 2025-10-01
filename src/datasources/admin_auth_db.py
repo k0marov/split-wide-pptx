@@ -57,6 +57,15 @@ class AdminAuthDB:
         finally:
             session.close()
 
+    def get_admins_list(self) -> list[Admin]:
+        session = self._get_session()
+        try:
+            admin = session.query(Admin).all()
+            return list(admin)
+        finally:
+            session.close()
+
+
     def set_admin(self, id: str, chat_id: str) -> None:
         """
         Add a user ID to the admins table if not already present.
