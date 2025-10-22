@@ -11,6 +11,7 @@ import asyncio
 from dotenv import load_dotenv
 
 from src.datasources import admin_auth_db
+from src.renote import transforms
 from src.renote.processor import process_pptx, ProcessingOptions
 from src.userbot import telethon_file_manager
 
@@ -156,12 +157,17 @@ class PPTXBot:
                     title_min_width_ratio=1.2,  # Default values
                 )
 
-                process_pptx(
-                    input_path,
-                    output_path,
-                    options=opts,
-                    direct=True,
-                )
+                try:
+                    process_pptx(
+                        input_path,
+                        output_path,
+                        options=opts,
+                        direct=True,
+                    )
+                except transforms.InvalidSlidesCountException:
+                    await message.reply("Презентация должна иметь количество слайдов, делящееся на 3.")
+                    return
+
 
                 await asyncio.gather(
                     self._send_split_presentation(output_path, message),

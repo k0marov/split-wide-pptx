@@ -217,6 +217,7 @@ async def upload_file_smart(bot: aiogram.Bot, file_path: str) -> typing.Optional
         print("Файл больше 20MB, использую Telethon")
         return await telethon_downloader.upload_large_file(TELEGRAM_BOT_USERNAME, file_path)
     else:
+
         return None
 
 
@@ -260,17 +261,15 @@ async def download_file_smart(bot, file_obj, message) -> str:
         print("Файл меньше 20MB, использую Bot API")
         
         # Скачиваем через обычный Bot API
-        file_info = bot.get_file(file_obj.file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        
+        file_info = await bot.get_file(file_obj.file_id)
+
         # Сохраняем во временный файл
         temp_dir = tempfile.gettempdir()
         video_filename = f"video_{file_obj.file_id}.mp4"
         video_path = os.path.join(temp_dir, video_filename)
-        
-        with open(video_path, 'wb') as video_file:
-            video_file.write(downloaded_file)
-        
+
+        await bot.download_file(file_info.file_path, destination=video_path)
+
         return video_path
 
 

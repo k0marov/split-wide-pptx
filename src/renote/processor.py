@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from .transforms import split_into_thirds_direct
+from .transforms import create_triptych
 from .scenarios import classify_slides
 
 
@@ -34,7 +34,7 @@ def process_pptx(
         title_min_width_ratio=opts.title_min_width_ratio,
     )
 
-    split_into_thirds_direct(
+    create_triptych(
         input_pptx,
         output_pptx,
         title_min_font_pt=opts.title_min_font_pt,
