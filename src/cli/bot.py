@@ -3,13 +3,17 @@ import re
 import tempfile
 
 import aiogram
+from aiogram import F
+
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from aiogram.types import Message
+from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, \
+    CallbackQuery
 import asyncio
 
 from dotenv import load_dotenv
 
+from src.create_triptych import create_triptych
 from src.datasources import admin_auth_db
 from src.renote.processor import process_pptx, ProcessingOptions
 from src.userbot import telethon_file_manager
@@ -17,12 +21,15 @@ from src.userbot import telethon_file_manager
 from src import config
 from src.libre import convert_to_pdf
 
+USER_MODE_CREATE = 'create'
+USER_MODE_CUT = 'cut'
 
 class PPTXBot:
     def __init__(self, token: str, db: admin_auth_db.AdminAuthDB):
         self.bot = Bot(token=token)
         self.db = db
         self.dp = Dispatcher()
+        self.user_modes = {}  # user_id: mode
         self.setup_handlers()
 
     def setup_handlers(self):
@@ -30,6 +37,10 @@ class PPTXBot:
         self.dp.message(Command("help"))(self.help_handler)
         self.dp.message(Command(re.compile("accept_[0-9]+")))(self.accept_handler)
         self.dp.message(Command(re.compile("reject_[0-9]+")))(self.reject_handler)
+        self.dp.callback_query.register(
+            self.callback_handler,
+            lambda c: c.data in [USER_MODE_CREATE, USER_MODE_CUT]
+        )
         self.dp.message()(self.message_handler)
 
     async def start_handler(self, message: Message):
@@ -46,7 +57,9 @@ class PPTXBot:
             "Просто отправьте мне файл презентации (.pptx) и я обработаю его.\n\n"
             "Используйте /help для справки."
         ]
-        if not self.db.check_is_approved(str(user_id)):
+        reply_markup = None
+        approved = self.db.check_is_approved(str(user_id))
+        if not approved:
             admins = self.db.get_admins_list()
             for admin in admins:
                 msg = ('Новая заявка на доступ:\n'
@@ -56,10 +69,26 @@ class PPTXBot:
                     f'Используйте /accept_{message.from_user.id} для принятия или /reject_{message.from_user.id} для отклонения\n')
                 await self.bot.send_message(admin.chat_id, msg)
             welcome_text.append('\nВы пока не приняты админом, он должен принять вас, инструкции были посланы ему в чат.')
-
         await message.answer(
             ''.join(welcome_text),
+            reply_markup=self.get_inline_kb() if approved else None,
         )
+
+    def get_inline_kb(self):
+        kb_list = [
+            [InlineKeyboardButton(text="Разрезать триптих", callback_data=USER_MODE_CUT),
+             InlineKeyboardButton(text="Создать триптих", callback_data=USER_MODE_CREATE)],
+        ]
+        return InlineKeyboardMarkup(inline_keyboard=kb_list)
+
+    async def callback_handler(self, callback: CallbackQuery):
+        if callback.data == USER_MODE_CUT:
+            await callback.message.answer("Вы выбрали режим разрезания триптихов", reply_markup=self.get_inline_kb())
+            self.user_modes[callback.from_user.id] = USER_MODE_CUT
+        elif callback.data == USER_MODE_CREATE:
+            await callback.message.answer("Вы выбрали режим создания триптихов", reply_markup=self.get_inline_kb())
+            self.user_modes[callback.from_user.id] = USER_MODE_CREATE
+        await callback.answer()
 
     async def accept_handler(self, message: Message):
         user_id = message.from_user.id
@@ -131,6 +160,40 @@ class PPTXBot:
 
 
     async def handle_document(self, message: Message):
+        if self.user_modes.get(message.from_user.id, USER_MODE_CUT) == USER_MODE_CUT:
+            return await self.handle_document_cut_pptx(message)
+        else:
+            return await self.handle_document_create(message)
+
+    async def handle_document_create(self, message: Message):
+        if not message.document.file_name or not message.document.file_name.endswith('.pdf'):
+            await message.answer("❌ Пожалуйста, отправьте файл в формате .pdf")
+            return
+        await message.answer("⏳ Создаю презентацию-триптих...")
+        try:
+            input_path = await telethon_file_manager.download_file_smart(self.bot, message.document, message)
+            try:
+                with tempfile.NamedTemporaryFile(
+                        prefix='triptych_' + ''.join(message.document.file_name.split('.')[:-1]),
+                        suffix='.pdf',
+                        delete=False) as output_file:
+                    output_path = output_file.name
+                    create_triptych(input_path, output_path)
+                    msg_file = await telethon_file_manager.upload_file_smart(self.bot, output_path)
+                    if msg_file is None:
+                        # this means that telethon big file upload was not needed and we can use bot api
+                        msg_file = types.FSInputFile(output_path)
+                    await message.answer_document(
+                        msg_file,
+                        caption="✅ Успешно сконвертировал разрезанную презентацию в PDF"
+                    )
+            finally:
+                if input_path is not None and os.path.exists(input_path):
+                    os.unlink(input_path)
+        except Exception as e:
+            await message.answer(f"❌ Произошла ошибка при обработке: {str(e)}")
+
+    async def handle_document_cut_pptx(self, message: Message):
         """Handle document upload"""
         if not message.document.file_name or not message.document.file_name.endswith('.pptx'):
             await message.answer("❌ Пожалуйста, отправьте файл в формате .pptx")
