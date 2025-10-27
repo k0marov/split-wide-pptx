@@ -20,7 +20,9 @@ from src.userbot import telethon_file_manager
 
 from src import config
 from src.libre import convert_to_pdf
-from src.win_version.pipeline import pipeline_split_wide_pptx
+
+if config.ALGORITHM_TYPE == 'windows':
+    from src.win_version.pipeline import pipeline_split_wide_pptx
 
 USER_MODE_CREATE = 'create'
 USER_MODE_CUT = 'cut'
