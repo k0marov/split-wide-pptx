@@ -4,6 +4,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+ALGORITHM_TYPE = os.getenv('ALGORITHM_TYPE')
+if ALGORITHM_TYPE is None:
+    raise Exception('please set ALGORITHM_TYPE')
+
 # Переменные для Telethon (для скачивания больших файлов)
 TELEGRAM_API_ID = os.getenv("TELEGRAM_API_ID")
 TELEGRAM_API_HASH = os.getenv("TELEGRAM_API_HASH")

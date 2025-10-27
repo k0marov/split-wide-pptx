@@ -20,6 +20,7 @@ from src.userbot import telethon_file_manager
 
 from src import config
 from src.libre import convert_to_pdf
+from src.win_version.pipeline import pipeline_split_wide_pptx
 
 USER_MODE_CREATE = 'create'
 USER_MODE_CUT = 'cut'
@@ -219,12 +220,16 @@ class PPTXBot:
                     title_min_width_ratio=1.2,  # Default values
                 )
 
-                process_pptx(
-                    input_path,
-                    output_path,
-                    options=opts,
-                    direct=True,
-                )
+                if config.ALGORITHM_TYPE == 'windows':
+                    pipeline_split_wide_pptx(input_path, output_path, opts.title_min_font_pt)
+                else:
+                    process_pptx(
+                        input_path,
+                        output_path,
+                        options=opts,
+                        direct=True,
+                    )
+
 
                 await asyncio.gather(
                     self._send_split_presentation(output_path, message),
