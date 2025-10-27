@@ -66,17 +66,17 @@ def split_slides_into_thirds(input_pptx, slide_mapping: dict, output_pptx):
                     shape.left = shape.left-2*third_width
                 if shape.left < 0:
                     max_left_delta = max(max_left_delta, abs(shape.left))
-        shapes = list(slide.shapes)
-        while shapes:
-            shape = shapes.pop()
-            shape.left += max_left_delta
+        # shapes = list(slide.shapes)
+        # while shapes:
+        #     shape = shapes.pop()
+        #     shape.left += max_left_delta
 
 
     prs.save(output_pptx)
     print(f"Presentation saved to {output_pptx}")
 
 # if __name__ == "__main__":
-#     if len(sys.argv) < 2:
+#     if len(sys.arggv) < 2:
 #         print("Usage: python script.py input.pptx [output.pptx]")
 #         sys.exit(1)
 #
